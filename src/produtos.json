@@ -1,0 +1,25 @@
+[
+  {
+    "id": "1",
+    "nome": "Impressora 3d Snapmaker U1 Fdm Com 4 Bicos Independentes",
+    "categoria": "Impressoras",
+    "subcategoria": "Intemediaria ",
+    "loja": "Mercado Livre",
+    "faixaPreco": "R$ 10.000 - R$ 20.000",
+    "linkAfiliado": "https://meli.la/1krHuVv",
+    "idIntegracaoAPI": "MLB6581713954",
+    "ativo": true,
+    "imagemUrl": "https://http2.mlstatic.com/D_NQ_NP_2X_646783-MLA115439080568_082026-F.webp"
+  },
+  {
+    "id": "1788479061678",
+    "nome": "Impressora 3d P2s Com Ams 2 Pro Bambu Lab",
+    "categoria": "Impressoras",
+    "subcategoria": "FDM",
+    "loja": "Mercado Livre",
+    "faixaPreco": "R$ 5.000 - R$ 10.000",
+    "linkAfiliado": "https://meli.la/2GCyLwp",
+    "idIntegracaoAPI": "",
+    "ativo": true
+  }
+]
