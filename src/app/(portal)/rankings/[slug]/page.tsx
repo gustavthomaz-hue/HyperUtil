@@ -98,8 +98,8 @@ export default function RankingSlugPage({
             };
           });
 
-          // Ordena rigorosamente do menor preço/porte para o maior (mais baratos no topo)
-          itensEnriquecidos.sort((a, b) => a.precoNumerico - b.precoNumerico);
+          // Ordena rigorosamente do menor preço/porte para o maior (mais baratos no topo) com tipos definidos
+          itensEnriquecidos.sort((a: ItemRanking, b: ItemRanking) => (a.precoNumerico || 0) - (b.precoNumerico || 0));
 
           setItensRanking(itensEnriquecidos);
         }
