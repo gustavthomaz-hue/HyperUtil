@@ -16,7 +16,6 @@ export default async function ListaDuelosPage() {
 
   return (
     <div className="w-full flex justify-center bg-[#F8FAFC] min-h-screen text-slate-800 font-sans pb-16">
-      {/* Largura intermediária (max-w-3xl) na medida certa */}
       <div className="w-full max-w-3xl px-6 pt-6 space-y-6">
         
         {/* Voltar e Tag */}
@@ -48,54 +47,58 @@ export default async function ListaDuelosPage() {
               <Link 
                 key={duelo.id}
                 href={`/duelos/${duelo.slug}`}
-                className="bg-white hover:border-purple-300 border border-slate-200/80 rounded-2xl p-5 sm:p-6 transition shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 group"
+                className="bg-white hover:border-purple-300 border border-slate-200/80 rounded-2xl p-4 sm:p-6 transition shadow-sm flex flex-col gap-4 group"
               >
-                {/* Lado esquerdo: Miniaturas e Nomes */}
-                <div className="flex items-center gap-4 sm:gap-6 w-full md:w-auto justify-between md:justify-start">
+                {/* Bloco dos Produtos (Empilhado no mobile, lado a lado no desktop) */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 w-full">
                   
-                  {/* Miniatura Produto 1 */}
-                  <div className="flex items-center gap-3">
-                    <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl bg-slate-50 border border-slate-100 p-2.5 flex items-center justify-center shrink-0 shadow-sm">
+                  {/* Produto 1 */}
+                  <div className="flex items-center gap-3 w-full sm:w-1/2 bg-slate-50/60 p-2.5 rounded-xl border border-slate-100">
+                    <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-lg bg-white border border-slate-100 p-2 flex items-center justify-center shrink-0 shadow-sm">
                       <img 
                         src={duelo.produto1?.imagem_url || "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=200"} 
                         alt={duelo.produto1?.nome}
                         className="max-h-full max-w-full object-contain" 
                       />
                     </div>
-                    <div className="font-bold text-slate-800 text-xs sm:text-sm max-w-[130px] sm:max-w-[170px] line-clamp-2">
+                    <div className="font-bold text-slate-800 text-xs sm:text-sm line-clamp-2">
                       {duelo.produto1?.nome || 'Produto 1'}
                     </div>
                   </div>
 
-                  <span className="bg-purple-50 text-purple-600 font-black text-xs px-3 py-1.5 rounded-xl uppercase shrink-0 border border-purple-100">
-                    vs
-                  </span>
+                  {/* Tag VS Central */}
+                  <div className="self-center my-[-8px] sm:my-0 z-10">
+                    <span className="bg-purple-100 text-purple-700 font-black text-[11px] px-2.5 py-1 rounded-full uppercase shadow-xs border border-purple-200 block">
+                      vs
+                    </span>
+                  </div>
 
-                  {/* Miniatura Produto 2 */}
-                  <div className="flex items-center gap-3">
-                    <div className="font-bold text-slate-800 text-xs sm:text-sm max-w-[130px] sm:max-w-[170px] line-clamp-2 text-right">
-                      {duelo.produto2?.nome || 'Produto 2'}
-                    </div>
-                    <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl bg-slate-50 border border-slate-100 p-2.5 flex items-center justify-center shrink-0 shadow-sm">
+                  {/* Produto 2 */}
+                  <div className="flex items-center sm:flex-row-reverse gap-3 w-full sm:w-1/2 bg-slate-50/60 p-2.5 rounded-xl border border-slate-100 text-left sm:text-right">
+                    <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-lg bg-white border border-slate-100 p-2 flex items-center justify-center shrink-0 shadow-sm">
                       <img 
                         src={duelo.produto2?.imagem_url || "https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?w=200"} 
                         alt={duelo.produto2?.nome}
                         className="max-h-full max-w-full object-contain" 
                       />
                     </div>
+                    <div className="font-bold text-slate-800 text-xs sm:text-sm line-clamp-2 flex-1">
+                      {duelo.produto2?.nome || 'Produto 2'}
+                    </div>
                   </div>
 
                 </div>
 
-                {/* Botão de ação à direita */}
-                <div className="flex items-center gap-3 w-full md:w-auto justify-end pt-3 md:pt-0 border-t md:border-t-0 border-slate-100">
-                  <span className="text-xs font-bold text-slate-500 group-hover:text-purple-600 transition">
+                {/* Rodapé do Card: Ação */}
+                <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+                  <span className="font-bold text-slate-500 group-hover:text-purple-600 transition">
                     Ver comparativo completo
                   </span>
-                  <div className="h-8 w-8 rounded-xl bg-slate-50 group-hover:bg-purple-50 text-slate-400 group-hover:text-purple-600 flex items-center justify-center transition shrink-0">
+                  <div className="h-7 w-7 rounded-lg bg-slate-50 group-hover:bg-purple-50 text-slate-400 group-hover:text-purple-600 flex items-center justify-center transition shrink-0">
                     <ChevronRight className="h-4 w-4" />
                   </div>
                 </div>
+
               </Link>
             ))
           ) : (
