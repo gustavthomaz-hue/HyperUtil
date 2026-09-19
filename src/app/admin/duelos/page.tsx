@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Swords, Trash2, Edit3, Loader2, Sparkles, ShieldAlert } from "lucide-react";
+import { Swords, Trash2, Edit3, Loader2, Sparkles, ShieldAlert, Printer, Plane } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 interface Produto {
   id: string;
   nome: string;
   slug: string;
+  categoria?: string;
 }
 
 interface Duelo {
@@ -24,6 +25,9 @@ export default function AdminDuelosPage() {
   const [loading, setLoading] = useState(true);
   const [gerando, setGerando] = useState(false);
 
+  // Estado para alternar entre nichos ("impressao-3d" ou "drones")
+  const [nichoAtivo, setNichoAtivo] = useState<"impressao-3d" | "drones">("impressao-3d");
+
   const [produto1Id, setProduto1Id] = useState("");
   const [produto2Id, setProduto2Id] = useState("");
   const [mensagem, setMensagem] = useState("");
@@ -36,7 +40,7 @@ export default function AdminDuelosPage() {
   async function carregarDados() {
     setLoading(true);
     
-    const { data: prodData, error: prodError } = await supabase.from("produtos").select("id, nome, slug");
+    const { data: prodData, error: prodError } = await supabase.from("produtos").select("id, nome, slug, categoria");
     if (prodData) {
       setProdutos(prodData);
     } else if (prodError) {
@@ -53,6 +57,57 @@ export default function AdminDuelosPage() {
     setLoading(false);
   }
 
+  // Filtro inteligente para os produtos da gaveta com base no nicho selecionado
+  const produtosFiltrados = produtos.filter((p) => {
+    const nomeLower = p.nome.toLowerCase();
+    const catLower = (p.categoria || "").toLowerCase();
+
+    if (nichoAtivo === "impressao-3d") {
+      // Deve conter termos de impressora 3D E NÃO PODE conter termos de filamentos ou acessórios indesejados
+      const ehImpressora = 
+        nomeLower.includes("impressora") || 
+        nomeLower.includes("bambu") || 
+        nomeLower.includes("creality") || 
+        nomeLower.includes("elegoo") || 
+        nomeLower.includes("flashforge") || 
+        nomeLower.includes("anycubic") ||
+        catLower.includes("impressora");
+
+      const ehFiltroIndesejado = 
+        nomeLower.includes("filamento") || 
+        nomeLower.includes("pla") || 
+        nomeLower.includes("abs") || 
+        nomeLower.includes("petg") || 
+        nomeLower.includes("resina") || 
+        nomeLower.includes("aerografo") || 
+        nomeLower.includes("cola");
+
+      return ehImpressora && !ehFiltroIndesejado;
+    } else {
+      // Nicho de Drones
+      const ehDrone = 
+        nomeLower.includes("drone") || 
+        nomeLower.includes("dji") || 
+        nomeLower.includes("mavic") || 
+        nomeLower.includes("neo") || 
+        catLower.includes("drone");
+
+      return ehDrone;
+    }
+  });
+
+  // Filtra os duelos cadastrados para exibir apenas os que pertencem aos produtos do nicho atual
+  const duelosFiltrados = duelos.filter((duelo) => {
+    const p1 = produtos.find(p => p.id === duelo.produto1_id);
+    const p2 = produtos.find(p => p.id === duelo.produto2_id);
+    if (!p1 || !p2) return true; // Se não achar, exibe por segurança
+
+    const p1Filtrado = produtosFiltrados.some(p => p.id === p1.id);
+    const p2Filtrado = produtosFiltrados.some(p => p.id === p2.id);
+
+    return p1Filtrado && p2Filtrado;
+  });
+
   const salvarOuGerarDuelo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!produto1Id || !produto2Id) {
@@ -65,7 +120,7 @@ export default function AdminDuelosPage() {
     }
 
     setGerando(true);
-    setMensagem(dueloEditandoId ? "Atualizando duelo..." : "Gerando análise técnica via Groq...");
+    setMensagem(dueloEditandoId ? "Atualizando duelo..." : "Gerando análise técnica via IA...");
 
     try {
       if (dueloEditandoId) {
@@ -143,11 +198,14 @@ export default function AdminDuelosPage() {
     <main className="min-h-screen bg-slate-900 text-slate-100 p-4 font-sans flex justify-center">
       <div className="w-full max-w-4xl space-y-4">
         
-        {/* Cabeçalho */}
+        {/* Cabeçalho com Botões de Troca de Nicho */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-800 pb-3">
           <div>
             <div className="flex items-center gap-2 text-purple-400 text-[10px] font-bold uppercase tracking-wider mb-0.5">
-              <Swords className="w-3.5 h-3.5" /> Painel Administrativo • Categoria: <span className="text-slate-200 bg-slate-800 px-1.5 py-0.5 rounded ml-1">Impressão 3D</span>
+              <Swords className="w-3.5 h-3.5" /> Painel Administrativo • Categoria Selecionada: 
+              <span className="text-slate-200 bg-slate-800 px-1.5 py-0.5 rounded ml-1">
+                {nichoAtivo === "impressao-3d" ? "Impressão 3D" : "Drones"}
+              </span>
             </div>
             <h1 className="text-xl font-bold flex items-center gap-2">
               Gerenciador de Duelos
@@ -156,13 +214,37 @@ export default function AdminDuelosPage() {
               Selecione os dois produtos abaixo e clique no botão para gerar a análise comparativa via IA.
             </p>
           </div>
+
+          {/* Botões de Alternância de Nicho */}
+          <div className="flex items-center gap-1.5 bg-slate-950 p-1 border border-slate-800 rounded-xl">
+            <button
+              onClick={() => { setNichoAtivo("impressao-3d"); cancelarEdicao(); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                nichoAtivo === "impressao-3d" 
+                  ? "bg-purple-600 text-white shadow-sm" 
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+              }`}
+            >
+              <Printer className="w-3.5 h-3.5" /> Impressoras 3D
+            </button>
+            <button
+              onClick={() => { setNichoAtivo("drones"); cancelarEdicao(); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                nichoAtivo === "drones" 
+                  ? "bg-purple-600 text-white shadow-sm" 
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+              }`}
+            >
+              <Plane className="w-3.5 h-3.5" /> Drones
+            </button>
+          </div>
         </div>
 
         {/* Formulário / Configurar Confronto */}
         <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-3 shadow-lg">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-              <ShieldAlert className="w-4 h-4 text-purple-400" /> {dueloEditandoId ? "Editar Duelo Selecionado" : "Configurar Novo Confronto"}
+              <ShieldAlert className="w-4 h-4 text-purple-400" /> {dueloEditandoId ? "Editar Duelo Selecionado" : `Configurar Novo Confronto (${nichoAtivo === "impressao-3d" ? "Impressoras 3D" : "Drones"})`}
             </h2>
             {dueloEditandoId && (
               <button onClick={cancelarEdicao} className="text-[11px] text-rose-400 font-bold hover:underline">
@@ -182,7 +264,7 @@ export default function AdminDuelosPage() {
                   required
                 >
                   <option value="">Selecione um produto...</option>
-                  {produtos.map((p) => (
+                  {produtosFiltrados.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.nome}
                     </option>
@@ -199,7 +281,7 @@ export default function AdminDuelosPage() {
                   required
                 >
                   <option value="">Selecione um produto...</option>
-                  {produtos.map((p) => (
+                  {produtosFiltrados.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.nome}
                     </option>
@@ -228,17 +310,17 @@ export default function AdminDuelosPage() {
 
         {/* Lista de Duelos Cadastrados */}
         <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-3 shadow-lg">
-          <h2 className="text-xs font-bold text-slate-200">Duelos Cadastrados ({duelos.length})</h2>
+          <h2 className="text-xs font-bold text-slate-200">Duelos Cadastrados ({duelosFiltrados.length})</h2>
 
           {loading ? (
             <div className="py-6 flex justify-center">
               <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
             </div>
-          ) : duelos.length === 0 ? (
-            <p className="text-[11px] text-slate-400 py-4 text-center">Nenhum duelo cadastrado ainda.</p>
+          ) : duelosFiltrados.length === 0 ? (
+            <p className="text-[11px] text-slate-400 py-4 text-center">Nenhum duelo cadastrado para este nicho ainda.</p>
           ) : (
             <div className="divide-y divide-slate-800/60">
-              {duelos.map((duelo, index) => {
+              {duelosFiltrados.map((duelo, index) => {
                 const p1 = produtos.find((p) => p.id === duelo.produto1_id);
                 const p2 = produtos.find((p) => p.id === duelo.produto2_id);
                 return (

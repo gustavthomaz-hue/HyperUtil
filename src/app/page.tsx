@@ -17,16 +17,21 @@ import { SiteFooter } from '@/components/site-footer';
 export const revalidate = 0;
 
 export default async function Home() {
+  // Busca todos os duelos para sortearmos um diferente a cada acesso/recarregamento
   const { data: duelos } = await supabase
     .from('duelos')
     .select(`
       *,
       produto1:produtos!duelos_produto1_id_fkey(*),
       produto2:produtos!duelos_produto2_id_fkey(*)
-    `)
-    .limit(1);
+    `);
 
-  const dueloDestaque = duelos && duelos.length > 0 ? duelos[0] : null;
+  // Sorteio aleatório de um duelo entre os cadastrados
+  let dueloDestaque = null;
+  if (duelos && duelos.length > 0) {
+    const indiceAleatorio = Math.floor(Math.random() * duelos.length);
+    dueloDestaque = duelos[indiceAleatorio];
+  }
 
   const { data: noticiasData } = await supabase
     .from('noticias')
@@ -61,42 +66,18 @@ export default async function Home() {
     }
   ];
 
-  // Busca dinâmica dos produtos destacados usando a coluna recém-criada
+  // Busca dinâmica bloqueando explicitamente a Bambu Lab A1 antiga e ordenando por recentes
   const { data: produtosDestacadosData } = await supabase
     .from('produtos')
     .select('*')
     .eq('destacado', true)
+    .neq('nome', 'Impressora 3d Bambu Lab A1') // <-- Trava definitiva contra a A1 fantasma
+    .order('created_at', { ascending: false })
     .limit(3);
 
-  const produtosDestacados = produtosDestacadosData && produtosDestacadosData.length > 0 ? produtosDestacadosData : [
-    {
-      id: 'fallback-1',
-      nome: 'Impressora 3D Bambu Lab A1 Mini',
-      marca: 'Bambu Lab',
-      faixa_preco: 'R$ 2.199,90',
-      imagem_url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=400&q=80',
-      link_afiliado: '#',
-      subcategoria: 'impressoras'
-    },
-    {
-      id: 'fallback-2',
-      nome: 'PLA Premium Sunlu 1kg',
-      marca: 'Sunlu',
-      faixa_preco: 'R$ 119,90',
-      imagem_url: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400&q=80',
-      link_afiliado: '#',
-      subcategoria: 'filamentos-pla'
-    },
-    {
-      id: 'fallback-3',
-      nome: 'Paquímetro Digital Aço Inox Profissional',
-      marca: 'Digimess',
-      faixa_preco: 'R$ 89,90',
-      imagem_url: 'https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?w=400&q=80',
-      link_afiliado: '#',
-      subcategoria: 'acessorios'
-    }
-  ];
+  console.log("PRODUTOS DESTAQUES VINDO DO SUPABASE:", produtosDestacadosData);
+
+  const produtosDestacados = produtosDestacadosData && produtosDestacadosData.length > 0 ? produtosDestacadosData : [];
 
   const faqs = [
     {
@@ -146,7 +127,7 @@ export default async function Home() {
               </div>
             </div>
 
-            {/* CARD DE DUELO */}
+            {/* CARD DE DUELO (SORTEADO DINAMICAMENTE) */}
             <div className="md:col-span-5 bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
               <div className="flex items-center gap-1.5 text-[11px] font-bold text-blue-600 uppercase tracking-wider">
                 <Swords className="w-3.5 h-3.5" />
@@ -232,37 +213,41 @@ export default async function Home() {
             <div className="flex justify-between items-end">
               <h2 className="text-sm font-bold text-slate-900">Ofertas em Destaque</h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-              {produtosDestacados.map((item: any, idx: number) => (
-                <div key={item.id || idx} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm flex flex-col justify-between relative">
-                  {/* Detalhe de faixa âmbar sutil no topo do card */}
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 to-amber-500" />
-                  
-                  <div className="p-4 space-y-2">
-                    <div className="h-32 mx-auto flex items-center justify-center p-1 bg-white rounded-lg border border-slate-100">
-                      <img 
-                        src={item.imagem_url || "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400&q=80"} 
-                        alt={item.nome}
-                        className="max-h-full max-w-full object-contain"
-                      />
+            {produtosDestacados.length === 0 ? (
+              <div className="bg-white p-6 rounded-xl border border-slate-200 text-center text-xs text-slate-500">
+                Nenhum produto marcado como destaque no painel admin. Marque alguns produtos com "Sim" na coluna Destaque para exibi-los aqui.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                {produtosDestacados.map((item: any, idx: number) => (
+                  <div key={item.id || idx} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm flex flex-col justify-between relative">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 to-amber-500" />
+                    
+                    <div className="p-4 space-y-2">
+                      <div className="h-32 mx-auto flex items-center justify-center p-1 bg-white rounded-lg border border-slate-100">
+                        <img 
+                          src={item.imagem_url || "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400&q=80"} 
+                          alt={item.nome}
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      </div>
+                      <div className="flex justify-between items-center pt-1">
+                        <span className="bg-blue-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded shadow-sm">{item.marca || 'Destaque'}</span>
+                        <span className="text-[10px] font-bold text-amber-500">★ {item.avaliacao || "4.8"}</span>
+                      </div>
+                      <h3 className="font-bold text-slate-800 text-xs line-clamp-1">{item.nome}</h3>
                     </div>
-                    <div className="flex justify-between items-center pt-1">
-                      {/* Tag atualizada para usar o azul padrão do site (bg-blue-600 com texto branco) */}
-                      <span className="bg-blue-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded shadow-sm">{item.marca || 'Destaque'}</span>
-                      <span className="text-[10px] font-bold text-amber-500">★ {item.avaliacao || "4.8"}</span>
+                    <div className="p-4 pt-3 border-t border-slate-100 flex items-center justify-between mt-3 bg-slate-50/50">
+                      <span className="text-xs font-bold text-slate-900">{item.faixa_preco || 'Consulte'}</span>
+                      <a href={item.link_afiliado || '#'} target="_blank" rel="noopener noreferrer" className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-extrabold px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-sm shadow-amber-500/20 transition">
+                        <span>Oferta</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
                     </div>
-                    <h3 className="font-bold text-slate-800 text-xs line-clamp-1">{item.nome}</h3>
                   </div>
-                  <div className="p-4 pt-3 border-t border-slate-100 flex items-center justify-between mt-3 bg-slate-50/50">
-                    <span className="text-xs font-bold text-slate-900">{item.faixa_preco || 'Consulte'}</span>
-                    <a href={item.link_afiliado || '#'} target="_blank" rel="noopener noreferrer" className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-extrabold px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-sm shadow-amber-500/20 transition">
-                      <span>Oferta</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
 
           {/* NOTÍCIAS RECENTES */}

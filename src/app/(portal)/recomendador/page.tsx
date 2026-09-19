@@ -80,8 +80,9 @@ export default function RecomendadorPage() {
     return { min: 0, max: 9999999 };
   };
 
-  const handleSelect = (perguntaTitulo: string, respostaTexto: string) => {
-    const novasRespostas = { ...respostas, [perguntaTitulo]: respostaTexto };
+  const handleSelect = (perguntaTitulo: string, opcaoIndex: number, respostaTexto: string) => {
+    const chaveEstavel = `p${step}_opt_${opcaoIndex}`;
+    const novasRespostas = { ...respostas, [perguntaTitulo]: chaveEstavel };
     setRespostas(novasRespostas);
 
     let min = orcamentoMin;
@@ -131,7 +132,7 @@ export default function RecomendadorPage() {
         setResultado({
           nome: categoria === "impressoras" ? "Nenhuma impressora encontrada" : "Nenhum drone encontrado",
           tipo: "Aviso",
-          justificativa: "Não há nenhum produto cadastrado e vinculado estritamente a esta combinação de respostas no momento.",
+          justificativa: "Não há nenhum produto cadastrado e vinculado a esta combinação de respostas no momento.",
           linkCompra: "",
           imagem: ""
         });
@@ -167,7 +168,6 @@ export default function RecomendadorPage() {
     <div className="w-full flex justify-center bg-[#F8FAFC] min-h-screen text-slate-800 font-sans pb-16">
       <div className="w-full max-w-3xl px-6 pt-6 space-y-6">
         
-        {/* Cabeçalho da Seção */}
         <div className="text-center space-y-1.5">
           <div className="inline-flex items-center gap-2 bg-blue-50 border border-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-bold shadow-sm">
             <Sparkles className="w-3.5 h-3.5" />
@@ -182,7 +182,6 @@ export default function RecomendadorPage() {
           </p>
         </div>
 
-        {/* Seletor de Categoria (Aba) */}
         <div className="flex justify-center">
           <div className="inline-flex bg-slate-200/80 p-1 rounded-xl gap-1.5 shadow-inner">
             <button
@@ -208,7 +207,6 @@ export default function RecomendadorPage() {
           </div>
         </div>
 
-        {/* Card Principal do Quiz (Mais compacto) */}
         <div className="w-full bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-sm">
           {loadingInitial ? (
             <div className="py-12 flex flex-col items-center justify-center space-y-3">
@@ -237,7 +235,7 @@ export default function RecomendadorPage() {
                     {perguntas[step - 1].opcoes?.map((opcao, idx) => (
                       <button
                         key={idx}
-                        onClick={() => handleSelect(perguntas[step - 1].titulo, opcao.texto)}
+                        onClick={() => handleSelect(perguntas[step - 1].titulo, idx, opcao.texto)}
                         className="w-full text-left px-4 py-3 rounded-xl border border-slate-200/80 hover:border-blue-400 hover:bg-blue-50/30 font-semibold text-xs sm:text-sm text-slate-700 hover:text-blue-900 transition-all shadow-sm"
                       >
                         {opcao.texto}

@@ -1,115 +1,146 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import Groq from 'groq-sdk';
 
 export async function POST(request: Request) {
   try {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) {
+    const { subcategoria } = await request.json();
+
+    if (!subcategoria) {
+      return NextResponse.json({ error: 'Subcategoria não informada' }, { status: 400 });
+    }
+
+    const termoBusca = subcategoria.trim();
+    const slugClean = termoBusca.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\(\)\-\s]/g, '');
+
+    // Busca todos os produtos do banco
+    const { data: todosProdutos, error: produtoError } = await supabase
+      .from('produtos')
+      .select('*');
+
+    if (produtoError || !todosProdutos) {
       return NextResponse.json(
-        { error: 'Chave GROQ_API_KEY não encontrada no .env.local' },
+        { error: 'Erro ao buscar produtos no banco de dados.' },
         { status: 500 }
       );
     }
 
-    const { subcategoria } = await request.json();
+    // TRAVAS RIGOROSAS DE FILTRAGEM POR SUBCATEGORIA
+    const produtosFiltrados = todosProdutos.filter((p) => {
+      const nome = (p.nome || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const catSlug = (p.categoria_slug || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\(\)\-\s]/g, '');
+      const subCadastrada = (p.subcategoria || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\(\)\-\s]/g, '');
 
-    if (!subcategoria) {
+      // 1. TRAVA PARA IMPRESSORAS 3D FDM
+      if (slugClean.includes('fdm') || (slugClean.includes('impressora') && !slugClean.includes('resina'))) {
+        const eImpressora = nome.includes('impressora') || subCadastrada.includes('fdm') || catSlug.includes('fdm');
+        const temProibido = 
+          nome.includes('filamento') || 
+          nome.includes('pla') || 
+          nome.includes('petg') || 
+          nome.includes('resina') || 
+          nome.includes('aerografo') || 
+          nome.includes('tinta') || 
+          nome.includes('drone');
+        return eImpressora && !temProibido;
+      }
+
+      // 2. TRAVA PARA FILAMENTOS PLA
+      if (slugClean.includes('pla')) {
+        const ePla = nome.includes('pla') || subCadastrada.includes('pla') || catSlug.includes('pla');
+        const temProibido = 
+          nome.includes('impressora') || 
+          nome.includes('petg') || 
+          nome.includes('resina') || 
+          nome.includes('aerografo') || 
+          nome.includes('drone');
+        return ePla && !temProibido;
+      }
+
+      // 3. TRAVA PARA FILAMENTOS PETG
+      if (slugClean.includes('petg')) {
+        const ePetg = nome.includes('petg') || subCadastrada.includes('petg') || catSlug.includes('petg');
+        const temProibido = 
+          nome.includes('impressora') || 
+          nome.includes('pla') || 
+          nome.includes('resina') || 
+          nome.includes('aerografo') || 
+          nome.includes('drone');
+        return ePetg && !temProibido;
+      }
+
+      // 4. TRAVA PARA IMPRESSORAS DE RESINA
+      if (slugClean.includes('resina') && slugClean.includes('impressora')) {
+        const eResinaImp = (nome.includes('resina') || nome.includes('sla') || nome.includes('msla')) && nome.includes('impressora');
+        const temProibido = nome.includes('filamento') || nome.includes('pla');
+        return eResinaImp && !temProibido;
+      }
+
+      // 5. TRAVA PARA RESINAS (Insumo)
+      if (slugClean === 'resinas3d' || (slugClean.includes('resina') && !slugClean.includes('impressora'))) {
+        const eResinaInsumo = nome.includes('resina') && !nome.includes('impressora');
+        const temProibido = nome.includes('filamento') || nome.includes('impressora 3d');
+        return eResinaInsumo && !temProibido;
+      }
+
+      // 6. TRAVA PARA AERÓGRAFOS
+      if (slugClean.includes('aerografo')) {
+        const eAero = nome.includes('aerografo') || nome.includes('tinta') || nome.includes('compressor') || nome.includes('bico') || subCadastrada.includes('aerografo');
+        const temProibido = nome.includes('impressora 3d') || nome.includes('filamento');
+        return eAero && !temProibido;
+      }
+
+      return subCadastrada.includes(slugClean) || catSlug.includes(slugClean);
+    });
+
+    if (produtosFiltrados.length === 0) {
       return NextResponse.json(
-        { error: 'Subcategoria não fornecida' },
-        { status: 400 }
+        { error: `Nenhum produto correspondente encontrado estritamente para "${subcategoria}".` },
+        { status: 404 }
       );
     }
 
-    const { data: produtos, error } = await supabase
-      .from('produtos')
-      .select('*')
-      .eq('subcategoria', subcategoria)
-      .eq('ativo', true);
-
-    if (error) throw error;
-
-    if (!produtos || produtos.length === 0) {
-      return NextResponse.json({
-        message: 'Nenhum produto ativo encontrado para esta subcategoria.',
-      });
-    }
-
-    const listaParaIA = produtos.map((p) => ({
-      id: p.id,
+    // Mapeia os itens sem nota automática (nota: null por padrão)
+    const rankingItens = produtosFiltrados.map((p, index) => ({
+      posicao: index + 1,
+      produto_id: p.id,
       nome: p.nome,
-      marca: p.marca,
-      faixa_preco: p.faixa_preco,
-      loja: p.loja,
+      nota: null, // Sem nota automática para todas as categorias geradas
+      destaque: p.destaque_tag || `Destaque em performance na categoria ${subcategoria}`,
+      pontos_fortes: p.pontos_fortes?.length > 0 ? p.pontos_fortes : [
+        'Construção robusta e de alta durabilidade',
+        'Excelente desempenho em demandas exigentes',
+        'Ótima recepção e avaliações no mercado'
+      ],
+      pontos_fracos: ['Verificar especificações técnicas para o seu projeto'],
+      veredito: p.descricao || `O modelo ${p.nome} integra a curadoria especializada de ${subcategoria}, indicado para projetos que buscam confiabilidade e eficiência.`,
+      preco: p.preco,
+      imagem: p.imagem_url,
+      link_afiliado: p.link_afiliado
     }));
 
-    const groq = new Groq({ apiKey });
+    const dadosGerados = {
+      introducao_embate: `Guia atualizado de ${subcategoria}. Reunimos as principais opções disponíveis no mercado desta categoria para ajudar você a comparar e escolher o equipamento ideal conforme o seu objetivo.`,
+      ranking: rankingItens
+    };
 
-    const prompt = `Você é um avaliador técnico especialista em e-commerce.
-Analise e compare a lista de produtos da subcategoria "${subcategoria}":
+    const payloadSalvar = {
+      subcategoria: termoBusca,
+      introducao_embate: dadosGerados.introducao_embate,
+      ranking: dadosGerados.ranking,
+      atualizado_em: new Date().toISOString(),
+    };
 
-${JSON.stringify(listaParaIA, null, 2)}
+    const { error: upsertError } = await supabase
+      .from('rankings_salvos')
+      .upsert(payloadSalvar, { onConflict: 'subcategoria' });
 
-Sua tarefa:
-Compare todos os produtos com base em custo-benefício, popularidade e reputação.
-Atribua uma nota de 0.0 a 10.0 e defina a ordem exata do melhor (1º lugar) ao menor.
-
-Retorne ESTRITAMENTE um objeto JSON com a propriedade "avaliacoes":
-{
-  "avaliacoes": [
-    {
-      "id": "ID_DO_PRODUTO",
-      "posicao_ranking": 1,
-      "nota": 9.5,
-      "pros": ["Ponto forte 1", "Ponto forte 2"],
-      "contras": ["Ponto a considerar 1"]
-    }
-  ]
-}`;
-
-    const completion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: 'system',
-          content: 'Você é um especialista em ranking de e-commerce. Responda estritamente em JSON válido.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      model: 'llama-3.3-70b-versatile',
-      response_format: { type: 'json_object' },
-    });
-
-    const respostaTexto = completion.choices[0]?.message?.content || '{}';
-    const jsonParsed = JSON.parse(respostaTexto);
-    const avaliacoes = jsonParsed.avaliacoes || jsonParsed.produtos || [];
-
-    for (const item of avaliacoes) {
-      if (item.id) {
-        await supabase
-          .from('produtos')
-          .update({
-            posicao_ranking: Number(item.posicao_ranking) || null,
-            nota: Number(item.nota) || null,
-            pros: item.pros || [],
-            contras: item.contras || [],
-          })
-          .eq('id', item.id);
-      }
+    if (upsertError) {
+      throw upsertError;
     }
 
-    return NextResponse.json({
-      success: true,
-      message: `Ranking da subcategoria "${subcategoria}" atualizado com sucesso.`,
-      avaliacoes,
-    });
+    return NextResponse.json({ success: true, data: dadosGerados });
   } catch (err: any) {
-    console.error('Erro na API de geração de rankings:', err);
-    return NextResponse.json(
-      { error: err.message || 'Erro ao processar ranking.' },
-      { status: 500 }
-    );
+    console.error('Erro interno ao processar ranking:', err);
+    return NextResponse.json({ error: err.message || 'Erro interno ao gerar ranking' }, { status: 500 });
   }
 }
